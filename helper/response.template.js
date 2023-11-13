@@ -1,16 +1,12 @@
-function ResponseTemplate(data, message, error, status, metadata) {
+function ResponseTemplate(data, message, error, success) {
   const response = {
     data,
     message,
     error,
+    success,
   };
 
-  if (metadata) {
-    response.metadata = metadata;
-  }
-
-  return {
-    status: status || 200,
-    response,
-  };
+  return response;
 }
+
+module.exports = ResponseTemplate;
