@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
   res.json(ResponseTemplate(null, `Hello, server is running`, null, true));
   return;
 });
-app.get("/ping", () => {
+app.get("/ping", (req, res) => {
   res.status(200).json(ResponseTemplate("OKk", "pong", null, true));
 });
 
