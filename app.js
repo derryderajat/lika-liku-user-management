@@ -24,10 +24,13 @@ app.get("/", (req, res) => {
   res.json(ResponseTemplate(null, `Hello, server is running`, null, true));
   return;
 });
+app.get("/ping", () => {
+  res.status(200).json(ResponseTemplate("OKk", "pong", null, true));
+});
 
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on ${process.env.HOST}:${PORT}`);
   });
 }
 
