@@ -1,7 +1,8 @@
 const { PrismaClient, Prisma } = require(`@prisma/client`);
 const prisma = new PrismaClient();
-
 require("dotenv").config();
+const { SALT_ROUNDS: sr } = process.env;
+const SALT_ROUNDS = Number(sr);
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -9,10 +10,14 @@ const ResponseTemplate = require("../../helper/response.template");
 const { sendMail } = require("../../libs/mailer");
 const { generateUuidWithoutDashes } = require("../../helper/generateString");
 
+// repository
+// service - nembak database
+// handler validasi
+
 const register = async (req, res) => {
   const { username, email, password } = req.body;
   const schema = Joi.object({
-    username: Joi.string().min(3).max(16).required(),
+    username: Joi.string().alphanum().min(3).max(16).required(),
     email: Joi.string().email().required(),
     password: Joi.string()
       .min(6)
@@ -22,8 +27,10 @@ const register = async (req, res) => {
       .regex(/(?=.*\d)/) // Memeriksa setidaknya ada satu angka.
       .regex(/(?=.*[~!@#$%^&*()`])/) //Memeriksa setidaknya ada satu karakter
       .required(),
-    repeat_password: Joi.ref("password"),
   });
+
+  const salt = await bcrypt.genSalt(SALT_ROUNDS);
+  const hashedPassword = await bcrypt.hash(password, salt);
   // validation register
   try {
     const { error, value } = await schema.validateAsync({
@@ -42,10 +49,11 @@ const register = async (req, res) => {
   }
   // check email duplicate?
   try {
-    const isUserDuplicate = await prisma.users.findUnique({
+    const isUserDuplicate = await prisma.users.count({
       where: { email: email },
     });
-    if (isUserDuplicate) {
+
+    if (isUserDuplicate > 0) {
       throw new Error("Email is already used");
     }
   } catch (error) {
@@ -56,11 +64,6 @@ const register = async (req, res) => {
   }
   // Create new account
   try {
-    const saltRounds = 15;
-
-    const salt = await bcrypt.genSalt(saltRounds);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     let user = await prisma.users.create({
       data: {
         username: username,
@@ -88,6 +91,7 @@ const register = async (req, res) => {
 const login = async (req, res, next) => {
   try {
     let { username, email, password } = req.body;
+
     let user;
     // check is user exist
     if (username && email) {
@@ -110,7 +114,8 @@ const login = async (req, res, next) => {
       user = await prisma.users.findUnique({
         where: { email },
       });
-    } else {
+    }
+    if (!username && !email) {
       res
         .status(400)
         .json(
@@ -123,7 +128,6 @@ const login = async (req, res, next) => {
         );
       return;
     }
-
     // check if user is exist;
     if (!user) {
       res
@@ -131,9 +135,15 @@ const login = async (req, res, next) => {
         .json(ResponseTemplate(null, "Bad Request", "Invalid email", false));
       return;
     }
-
+    const start = new Date();
+    // console.log("comparing password start");
     let isPasswordCorrect = await bcrypt.compare(password, user.password);
-    console.log(isPasswordCorrect);
+
+    const end = new Date();
+
+    // console.log(`comparing password end takes (${end - start}) ms`);
+
+    // console.log(isPasswordCorrect);
     if (!isPasswordCorrect) {
       res
         .status(400)
@@ -147,6 +157,7 @@ const login = async (req, res, next) => {
 
     let selectedUser = {
       id: user.id,
+      username: user.username,
       email: user.email,
     };
     // 1 day expired
@@ -190,12 +201,14 @@ const forgot_password = async (req, res) => {
       .json(ResponseTemplate(null, "Bad Request", error.message, false));
   }
   const newPassword = generateUuidWithoutDashes();
-  const saltRounds = 15;
 
-  const salt = await bcrypt.genSalt(saltRounds);
+  const salt = await bcrypt.genSalt(SALT_ROUNDS);
   const hashedPassword = await bcrypt.hash(newPassword, salt);
 
   try {
+    // check email ada atau tidak...
+    // buat helper
+
     const updatePassword = await prisma.users.update({
       where: {
         email: email,

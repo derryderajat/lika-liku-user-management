@@ -12,7 +12,11 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
-
+// app.use((req, res, next) => {
+//   // Nonaktifkan caching
+//   res.setHeader("Cache-Control", "no-store");
+//   next();
+// });
 // route
 
 app.use("/api", router);
